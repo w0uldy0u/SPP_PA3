@@ -128,7 +128,7 @@ void *query_hdlr(void *arg)
 
         if(recv(connfd, &query, sizeof(query), 0) < 0)
         {
-            fprintf(stderr, "Recieve Failed\n");
+            fprintf(stderr, "Receive Failed\n");
             close(connfd);
             thread_stat[threadidx] = 0;
             return NULL;

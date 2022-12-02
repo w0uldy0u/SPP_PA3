@@ -132,7 +132,7 @@ int main (int argc, char *argv[])
 
         if(recv(client_socket, &return_val, sizeof(return_val), 0) < 0)
         {
-            fprintf(stderr, "Recieve Failed\n");
+            fprintf(stderr, "Receive Failed\n");
             exit(1);
         }
 
@@ -159,15 +159,25 @@ int main (int argc, char *argv[])
                 int seats[256];
                 if(recv(client_socket, seats, sizeof(seats), 0) < 0)
                 {
-                    fprintf(stderr, "Recieve Failed\n");
+                    fprintf(stderr, "Receive Failed\n");
                     exit(1);
                 }
 
                 printf("Reservation:");
+                int flag = 0;
                 for(int i = 0; i < 256; i++)
                 {
                     if(seats[i] == 1)
-                        printf(" %d", i);
+                    {
+                        if(flag == 0)
+                        {
+                            printf(" %d", i);
+                            flag = 1;
+                        }
+                        
+                        else
+                            printf(", %d", i);
+                    }
                 }
                 printf("\n");
             }
