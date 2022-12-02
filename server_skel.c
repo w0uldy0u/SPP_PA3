@@ -7,6 +7,12 @@
 #include <pthread.h>
 
 int thread_stat[1024];
+int login_user[1024];
+int passwd[1024];
+int seats[256];
+
+pthread_mutex_t login_m[1024];
+pthread_mutex_t seat_m[256];
 
 typedef struct _query {
     int user;
@@ -20,9 +26,29 @@ typedef struct argm{
 } argm;
 
 void *query_hdlr(void *arg);
+int login(query query, int thread_idx);
+int reserve(query query);
+int *chk_reserve(query query);
+int cancel_reserve(query query);
+int logout(query query, int thread_idx);
 
 int main(int argc, char* argv[])
 {
+    /* Initialize */
+    for(int i = 0; i < 1024; i++)
+    {
+        login_user[i] = -1;
+        passwd[i] = -1;
+
+        pthread_mutex_init(&login_m[i], NULL);
+
+        if(i < 256)
+        {
+            seats[i] = -1;
+            pthread_mutex_init(&seat_m[i], NULL);
+        }
+    }
+
     if(argc < 2)
     {
         fprintf(stderr, "Please Enter Port Number\n");
@@ -37,10 +63,16 @@ int main(int argc, char* argv[])
     serverAddr.sin_addr.s_addr = htons(INADDR_ANY);
     
     if(bind(serverSocket, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) == -1)
-	    return 0;
+    {
+        fprintf(stderr, "Bind Failed\n");
+	    exit(1);
+    }
 
     if(listen(serverSocket, 1024) < 0)
-	    return 0;
+    {
+	    fprintf(stderr, "Listen Failed\n");
+        exit(1);
+    }
 
     /*
      * Insert your PA3 server code
@@ -98,6 +130,7 @@ void *query_hdlr(void *arg)
 
     query query;
     int return_val = 1;
+    int *chk_seat = NULL;
 
     while(1)
     {
@@ -114,6 +147,25 @@ void *query_hdlr(void *arg)
         if(query.user == 0 && query.action == 0 && query.data == 0)
             return_val = 256;
         
+        switch(query.action)
+        {
+            case 1:
+                return_val = login(query, threadidx);
+                break;
+            case 2:
+                return_val = reserve(query);
+                break;
+            case 3:
+                chk_seat = chk_reserve(query);
+                break;
+            case 4:
+                return_val = cancel_reserve(query);
+                break;
+            case 5:
+                return_val = logout(query, threadidx);
+                break;
+        }
+        
         if(send(connfd, (int *)&return_val, sizeof(return_val), 0) < 0)
         {
             fprintf(stderr, "Send Failed\n");
@@ -126,7 +178,52 @@ void *query_hdlr(void *arg)
             break;
     }
 
+    printf("thread exit\n");
     close(connfd);
     thread_stat[threadidx] = 0;
     return NULL;
+}
+
+int login(query query, int thread_idx)
+{
+    pthread_mutex_lock(&login_m[query.user]);   // Lock mutex
+    if(login_user[query.user] == -1)
+    {
+        if(passwd[query.user] == query.data)    // Password correct
+        {
+            login_user[query.user] = thread_idx;
+            pthread_mutex_unlock(&login_m[query.user]);
+            return 1;
+        }
+        
+        else if(passwd[query.user] == -1)   // Register
+        {
+            passwd[query.user] = query.data;
+            login_user[query.user] = thread_idx;
+            pthread_mutex_unlock(&login_m[query.user]);
+            return 1;
+        }
+    }
+    pthread_mutex_unlock(&login_m[query.user]);
+    return -1;
+}
+
+int reserve(query query)
+{
+
+}
+
+int *chk_reserve(query query)
+{
+
+}
+
+int cancel_reserve(query query)
+{
+
+}
+
+int logout(query query, int thread_idx)
+{
+
 }
