@@ -58,49 +58,6 @@ int main (int argc, char *argv[])
 	exit(1);
     }
 	
-    /*
-     * Insert your PA3 client code
-     *
-     * You should handle input query
-     *
-     * Follow the print format below
-     *
-     * 1. Log in
-     * - On success
-     *   printf("Login success\n");
-     * - On fail
-     *   printf("Login failed\n");
-     *
-     * 2. Reserve
-     * - On success
-     *   printf("Seat %d is reserved\n");
-     * - On fail
-     *   printf("Reservation failed\n");
-     *
-     * 3. Check reservation
-     * - On success
-     *   printf("Reservation: %s\n");
-     *   or
-     *   printf("Reservation: ");
-     *   printf("%d, ");
-     *   ...
-     *   printf("%d\n");
-     * - On fail
-     *   printf("Reservation check failed\n");
-     *
-     * 4. Cancel reservation
-     * - On success
-     *   printf("Seat %d is canceled\n");
-     * - On fail
-     *   printf("Cancel failed\n");
-     *
-     * 5. Log out
-     * - On success
-     *   printf("Logout success\n");
-     * - On fail
-     *   printf("Logout failed\n");
-     *
-     */
     query query;
     int return_val;
     while(1)
@@ -132,12 +89,66 @@ int main (int argc, char *argv[])
 
         printf("Return Val: %d\n", return_val);
 
-        if(return_val == 256)
+        if(query.action == 1)   // Login
+        {
+            if(return_val == 1)
+                printf("Login success\n");
+            else
+                printf("Login failed\n");
+        }
+
+        else if(query.action == 2)  // Reservation
+        {
+            if(return_val == -1)
+                printf("Reservation failed\n");
+            else
+                printf("Seat %d is reserved\n", return_val);
+        }
+
+        else if(query.action == 3)  // Check Reservation
+        {
+            if(return_val == 1)
+            {
+                int seats[256];
+                if(recv(client_socket, seats, sizeof(seats), 0) < 0)
+                {
+                    fprintf(stderr, "Recieve Failed\n");
+                    exit(1);
+                }
+
+                printf("Reservation:");
+                for(int i = 0; i < 256; i++)
+                {
+                    if(seats[i] == 1)
+                        printf(" %d", i);
+                }
+                printf("\n");
+            }
+            else
+                printf("Reservation check failed\n");
+        }
+
+        else if(query.action == 4)  // Cancel Reservation
+        {
+            if(return_val == -1)
+                printf("Cancel failed\n");
+            else
+                printf("Seat %d is canceled\n", return_val);
+        }
+
+        else if(query.action == 5)   // Logout
+        {
+            if(return_val == 1)
+                printf("Logout success\n");
+            else
+                printf("Logout failed\n");
+        }
+
+        else if(return_val == 256)  // Terminate
             break;
     }
 
-
     close(client_socket);
-
+    fclose(fp);
     return 0;
 }
