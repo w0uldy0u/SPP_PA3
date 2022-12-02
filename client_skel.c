@@ -62,16 +62,65 @@ int main (int argc, char *argv[])
     int return_val;
     while(1)
     {
+        char *buf = NULL;
+        size_t size = 0;
         if(cmdin == 1)
-            scanf("%d %d %d", &query.user, &query.action, &query.data);
+            getline(&buf, &size, stdin);
 
         else
         {
-            if(fscanf(fp, "%d %d %d", &query.user, &query.action, &query.data) == EOF)
+            if(getline(&buf, &size, fp) < 0)
             {
                 query.user = 0;
                 query.action = 0;
                 query.data = 0;
+                free(buf);
+                buf = NULL;
+            }
+        }
+
+        /* Parse query from buf*/
+        if(buf != NULL)
+        {
+            int idx = 0;
+		    char *ptr = strtok(buf, " ");
+		    while(ptr != NULL)
+		    {
+                switch(idx)
+                {
+                    case 0:
+                        query.user = atoi(ptr);
+                        break;
+                    case 1:
+                        query.action = atoi(ptr);
+                        break;
+                    case 2:
+                        query.data = atoi(ptr);
+                        break;
+                }
+                
+                for(int i = 0; ptr[i] != '\0'; i++)
+                {
+                    if(ptr[i] < 48 || ptr[i] > 57 )
+                    {
+                        idx = 3;
+                        break;
+                    }
+                }
+
+                if(idx == 1)
+                    ptr = strtok(NULL, "\n");
+                else
+			        ptr = strtok(NULL, " ");
+
+                idx++;
+		    }
+
+            free(buf);
+            if(idx != 3)
+            {
+                printf("Invalid query\n");
+                continue;
             }
         }
 
@@ -86,8 +135,6 @@ int main (int argc, char *argv[])
             fprintf(stderr, "Recieve Failed\n");
             exit(1);
         }
-
-        printf("Return Val: %d\n", return_val);
 
         if(query.action == 1)   // Login
         {
@@ -149,6 +196,8 @@ int main (int argc, char *argv[])
     }
 
     close(client_socket);
-    fclose(fp);
+    if(!cmdin)
+        fclose(fp);
+
     return 0;
 }
