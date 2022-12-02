@@ -1,5 +1,5 @@
 main: server_skel.c client_skel.c
-	gcc -o pa3_server server_skel.c
+	gcc -o pa3_server server_skel.c -pthread
 	gcc -o pa3_client client_skel.c
 
 .PHONY: clean

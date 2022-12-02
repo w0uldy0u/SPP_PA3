@@ -4,24 +4,34 @@
 #include <stdlib.h>
 #include <netdb.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <string.h>
 
 typedef struct _query {
     int user;
     int action;
-    int seat;
+    int data;
 } query;
 
 int main (int argc, char *argv[])
 {
     int client_socket = socket(PF_INET, SOCK_STREAM, 0);
+    int cmdin = 0;
     struct sockaddr_in server_addr;
     struct hostent *h;
+    FILE* fp;
 
     if (argc == 3) {
 	    /* Insert your code for terminal input */
-    } else if (argc == 4) {
+        cmdin = 1;
+        } else if (argc == 4) {
 	    /* Insert your code for file input */
+        fp = fopen(argv[3], "r");
+        if(fp == NULL)
+        {
+            fprintf(stderr, "Input file not found\n");
+            exit(1);
+        }
     } else {
 	printf("Follow the input rule below\n");
 	printf("==================================================================\n");
@@ -91,6 +101,41 @@ int main (int argc, char *argv[])
      *   printf("Logout failed\n");
      *
      */
+    query query;
+    int return_val;
+    while(1)
+    {
+        if(cmdin == 1)
+            scanf("%d %d %d", &query.user, &query.action, &query.data);
+
+        else
+        {
+            if(fscanf(fp, "%d %d %d", &query.user, &query.action, &query.data) == EOF)
+            {
+                query.user = 0;
+                query.action = 0;
+                query.data = 0;
+            }
+        }
+
+        if(send(client_socket, (struct query *)&query, sizeof(query), 0) < 0)
+        {
+            fprintf(stderr, "Send Failed\n");
+            exit(1);
+        }
+
+        if(recv(client_socket, &return_val, sizeof(return_val), 0) < 0)
+        {
+            fprintf(stderr, "Recieve Failed\n");
+            exit(1);
+        }
+
+        printf("Return Val: %d\n", return_val);
+
+        if(return_val == 256)
+            break;
+    }
+
 
     close(client_socket);
 

@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <pthread.h>
 
-int thread_stat[1024], num_client;
+int thread_stat[1024];
 
 typedef struct _query {
     int user;
@@ -96,6 +96,35 @@ void *query_hdlr(void *arg)
     int threadidx = argm->threadidx;
     free(argm);
 
+    query query;
+    int return_val = 1;
+
+    while(1)
+    {
+        if(recv(connfd, &query, sizeof(query), 0) < 0)
+        {
+            fprintf(stderr, "Recieve Failed\n");
+            close(connfd);
+            thread_stat[threadidx] = 0;
+            return NULL;
+        }
+
+        printf("%d %d %d\n", query.user, query.action, query.data);
+
+        if(query.user == 0 && query.action == 0 && query.data == 0)
+            return_val = 256;
+        
+        if(send(connfd, (int *)&return_val, sizeof(return_val), 0) < 0)
+        {
+            fprintf(stderr, "Send Failed\n");
+            close(connfd);
+            thread_stat[threadidx] = 0;
+            return NULL;
+        }
+
+        if(return_val == 256)
+            break;
+    }
 
     close(connfd);
     thread_stat[threadidx] = 0;
