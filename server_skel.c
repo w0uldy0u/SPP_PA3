@@ -27,9 +27,9 @@ typedef struct argm{
 
 void *query_hdlr(void *arg);
 int login(query query, int thread_idx);
-int reserve(query query);
-int *chk_reserve(query query);
-int cancel_reserve(query query);
+int reserve(query query, int thread_idx);
+int *chk_reserve(query query, int thread_idx);
+int cancel_reserve(query query, int thread_idx);
 int logout(query query, int thread_idx);
 
 int main(int argc, char* argv[])
@@ -74,13 +74,6 @@ int main(int argc, char* argv[])
         exit(1);
     }
 
-    /*
-     * Insert your PA3 server code
-     *
-     * You should generate thread when new client accept occurs
-     * and process query of client until get termination query
-     *
-     */
     caddrlen = sizeof(caddr);
     pthread_t *cthreads = (pthread_t *)calloc(1024, sizeof(pthread_t));
 
@@ -117,7 +110,6 @@ int main(int argc, char* argv[])
     }
 
     free(cthreads);
-    pthread_join(cthreads[0], NULL);
     return 0;
 }
 
@@ -128,12 +120,12 @@ void *query_hdlr(void *arg)
     int threadidx = argm->threadidx;
     free(argm);
 
-    query query;
-    int return_val = 1;
-    int *chk_seat = NULL;
-
     while(1)
     {
+        query query;
+        int return_val = 1;
+        int *chk_seat = NULL;
+
         if(recv(connfd, &query, sizeof(query), 0) < 0)
         {
             fprintf(stderr, "Recieve Failed\n");
@@ -141,8 +133,6 @@ void *query_hdlr(void *arg)
             thread_stat[threadidx] = 0;
             return NULL;
         }
-
-        printf("%d %d %d\n", query.user, query.action, query.data);
 
         if(query.user == 0 && query.action == 0 && query.data == 0)
             return_val = 256;
@@ -153,13 +143,15 @@ void *query_hdlr(void *arg)
                 return_val = login(query, threadidx);
                 break;
             case 2:
-                return_val = reserve(query);
+                return_val = reserve(query, threadidx);
                 break;
             case 3:
-                chk_seat = chk_reserve(query);
+                chk_seat = chk_reserve(query, threadidx);
+                if(chk_seat == NULL)
+                    return_val = -1;
                 break;
             case 4:
-                return_val = cancel_reserve(query);
+                return_val = cancel_reserve(query, threadidx);
                 break;
             case 5:
                 return_val = logout(query, threadidx);
@@ -174,8 +166,31 @@ void *query_hdlr(void *arg)
             return NULL;
         }
 
+        if(query.action == 3 && return_val == 1)
+        {
+            if(send(connfd, (int *)chk_seat, 256 * sizeof(int), 0) < 0)
+            {
+                fprintf(stderr, "Send Failed\n");
+                close(connfd);
+                thread_stat[threadidx] = 0;
+                free(chk_seat);
+                return NULL;
+            }
+            free(chk_seat);
+        }
+
         if(return_val == 256)
+        {
+            for(int i = 0; i < 1024; i++)
+            {
+                if(login_user[i] == threadidx)
+                {
+                    login_user[i] = -1;
+                    break;
+                }
+            }
             break;
+        }
     }
 
     printf("thread exit\n");
@@ -208,22 +223,72 @@ int login(query query, int thread_idx)
     return -1;
 }
 
-int reserve(query query)
+int reserve(query query, int thread_idx)
 {
+    if(login_user[query.user] == thread_idx)
+    {
+        if(query.data >= 0 && query.data < 256)
+        {
+            pthread_mutex_lock(&seat_m[query.data]);
+            if(seats[query.data] == -1)
+            {
+                seats[query.data] = query.user;
+                pthread_mutex_unlock(&seat_m[query.data]);
+                return query.data;
+            }
+            pthread_mutex_unlock(&seat_m[query.data]);
+        }
+    }
 
+    return -1;
 }
 
-int *chk_reserve(query query)
+int *chk_reserve(query query, int thread_idx)
 {
+    if(login_user[query.user] == thread_idx)
+    {
+        int *chk_seat = (int *)calloc(256, sizeof(int));
+        int cnt = 0;
 
+        for(int i = 0; i < 256; i++)
+        {
+            if(seats[i] == query.user)
+            {
+                chk_seat[i] = 1;
+                cnt++;
+            }
+        }
+
+        if(cnt > 0)
+            return chk_seat;
+
+        free(chk_seat);
+    }
+    
+    return NULL;
 }
 
-int cancel_reserve(query query)
+int cancel_reserve(query query, int thread_idx)
 {
+    if(login_user[query.user] == thread_idx && query.data >= 0 && query.data < 256)
+    {
+        if(seats[query.data] == query.user)
+        {
+            seats[query.data] = -1;
+            return query.data;
+        }
+    }
 
+    return -1;
 }
 
 int logout(query query, int thread_idx)
 {
+    if(login_user[query.user] == thread_idx)
+    {
+        login_user[query.user] = -1;
+        return 1;
+    }
 
+    return -1;
 }
