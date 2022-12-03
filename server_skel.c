@@ -54,6 +54,7 @@ int main(int argc, char* argv[])
         fprintf(stderr, "Please Enter Port Number\n");
         exit(1);
     }
+    
     int serverSocket = socket(PF_INET, SOCK_STREAM, 0);
     int connfd, caddrlen;
     struct sockaddr_in serverAddr, caddr;

@@ -13,19 +13,18 @@ typedef struct _query {
     int data;
 } query;
 
+int make_query(query *query, FILE *fp);
+int print_result(query *query, int return_val, int client_socket);
+
 int main (int argc, char *argv[])
 {
     int client_socket = socket(PF_INET, SOCK_STREAM, 0);
-    int cmdin = 0;
     struct sockaddr_in server_addr;
     struct hostent *h;
-    FILE* fp;
+    FILE* fp = NULL;
 
-    if (argc == 3) {
-	    /* Insert your code for terminal input */
-        cmdin = 1;
-        } else if (argc == 4) {
-	    /* Insert your code for file input */
+    if (argc == 3){
+    } else if (argc == 4) {
         fp = fopen(argv[3], "r");
         if(fp == NULL)
         {
@@ -62,67 +61,8 @@ int main (int argc, char *argv[])
     int return_val;
     while(1)
     {
-        char *buf = NULL;
-        size_t size = 0;
-        if(cmdin == 1)
-            getline(&buf, &size, stdin);
-
-        else
-        {
-            if(getline(&buf, &size, fp) < 0)
-            {
-                query.user = 0;
-                query.action = 0;
-                query.data = 0;
-                free(buf);
-                buf = NULL;
-            }
-        }
-
-        /* Parse query from buf*/
-        if(buf != NULL)
-        {
-            int idx = 0;
-		    char *ptr = strtok(buf, " ");
-		    while(ptr != NULL)
-		    {
-                switch(idx)
-                {
-                    case 0:
-                        query.user = atoi(ptr);
-                        break;
-                    case 1:
-                        query.action = atoi(ptr);
-                        break;
-                    case 2:
-                        query.data = atoi(ptr);
-                        break;
-                }
-                
-                for(int i = 0; ptr[i] != '\0'; i++)
-                {
-                    if(ptr[i] < 48 || ptr[i] > 57 )
-                    {
-                        idx = 3;
-                        break;
-                    }
-                }
-
-                if(idx == 1)
-                    ptr = strtok(NULL, "\n");
-                else
-			        ptr = strtok(NULL, " ");
-
-                idx++;
-		    }
-
-            free(buf);
-            if(idx != 3)
-            {
-                printf("Invalid query\n");
-                continue;
-            }
-        }
+        if(make_query(&query, fp) < 0)
+            continue;
 
         if(send(client_socket, (struct query *)&query, sizeof(query), 0) < 0)
         {
@@ -136,91 +76,164 @@ int main (int argc, char *argv[])
             exit(1);
         }
 
-        if((query.user < 0 || query.user > 1023 || query.action < 1 || query.action > 5) && return_val == -1)
-            printf("Invalid query\n");
-
-        else if(query.action == 1)   // Login
-        {
-            if(return_val == 1)
-                printf("Login success\n");
-            else
-                printf("Login failed\n");
-        }
-
-        else if(query.action == 2)  // Reservation
-        {
-            if(return_val == -1)
-            {
-                if(query.data < 0 || query.data > 255)
-                    printf("Invalid query\n");
-                else
-                    printf("Reservation failed\n");
-            }
-            else
-                printf("Seat %d is reserved\n", return_val);
-        }
-
-        else if(query.action == 3)  // Check Reservation
-        {
-            if(return_val == 1)
-            {
-                int seats[256];
-                if(recv(client_socket, seats, sizeof(seats), 0) < 0)
-                {
-                    fprintf(stderr, "Receive Failed\n");
-                    exit(1);
-                }
-
-                printf("Reservation:");
-                int flag = 0;
-                for(int i = 0; i < 256; i++)
-                {
-                    if(seats[i] == 1)
-                    {
-                        if(flag == 0)
-                        {
-                            printf(" %d", i);
-                            flag = 1;
-                        }
-                        
-                        else
-                            printf(", %d", i);
-                    }
-                }
-                printf("\n");
-            }
-            else
-                printf("Reservation check failed\n");
-        }
-
-        else if(query.action == 4)  // Cancel Reservation
-        {
-            if(return_val == -1)
-            {
-                if(query.data < 0 || query.data > 255)
-                    printf("Invalid query\n");
-                else
-                    printf("Cancel failed\n");
-            }
-            else
-                printf("Seat %d is canceled\n", return_val);
-        }
-
-        else if(query.action == 5)   // Logout
-        {
-            if(return_val == 1)
-                printf("Logout success\n");
-            else
-                printf("Logout failed\n");
-        }
-
-        else if(return_val == 256)  // Terminate
+        if(print_result(&query, return_val, client_socket) < 0)
             break;
     }
 
     close(client_socket);
-    if(!cmdin)
+    if(fp != NULL)
         fclose(fp);
+
+    return 0;
+}
+
+int make_query(query *query, FILE * fp)
+{
+    char *buf = NULL;
+    size_t size = 0;
+    if(fp == NULL)
+        getline(&buf, &size, stdin);
+
+    else
+    {
+        if(getline(&buf, &size, fp) < 0)
+        {
+            query->user = 0;
+            query->action = 0;
+            query->data = 0;
+            free(buf);
+            buf = NULL;
+        }
+    }
+
+    /* Parse query from buf*/
+    if(buf != NULL)
+    {
+        int idx = 0;
+	    char *ptr = strtok(buf, " ");
+	    while(ptr != NULL)
+	    {
+            switch(idx)
+            {
+                case 0:
+                    query->user = atoi(ptr);
+                    break;
+                case 1:
+                    query->action = atoi(ptr);
+                    break;
+                case 2:
+                    query->data = atoi(ptr);
+                    break;
+            }
+            
+            for(int i = 0; ptr[i] != '\0'; i++)
+            {
+                if(ptr[i] < 48 || ptr[i] > 57 )
+                {
+                    idx = 3;
+                    break;
+                }
+            }
+
+            if(idx == 1)
+                ptr = strtok(NULL, "\n");
+            else
+		        ptr = strtok(NULL, " ");
+            idx++;
+	    }
+
+        free(buf);
+        if(idx != 3)
+        {
+            printf("Invalid query\n");
+            return -1;
+        }
+    }
+    return 0;
+}
+
+int print_result(query *query, int return_val, int client_socket)
+{
+    if((query->user < 0 || query->user > 1023 || query->action < 1 || query->action > 5) && return_val == -1)
+        printf("Invalid query\n");
+
+    else if(query->action == 1)   // Login
+    {
+        if(return_val == 1)
+            printf("Login success\n");
+        else
+            printf("Login failed\n");
+    }
+
+    else if(query->action == 2)  // Reservation
+    {
+        if(return_val == -1)
+        {
+            if(query->data < 0 || query->data > 255)
+                printf("Invalid query\n");
+            else
+                printf("Reservation failed\n");
+        }
+        else
+            printf("Seat %d is reserved\n", return_val);
+    }
+
+    else if(query->action == 3)  // Check Reservation
+    {
+        if(return_val == 1)
+        {
+            int seats[256];
+            if(recv(client_socket, seats, sizeof(seats), 0) < 0)
+            {
+                fprintf(stderr, "Receive Failed\n");
+                exit(1);
+            }
+
+            printf("Reservation:");
+            int flag = 0;
+            for(int i = 0; i < 256; i++)
+            {
+                if(seats[i] == 1)
+                {
+                    if(flag == 0)
+                    {
+                        printf(" %d", i);
+                        flag = 1;
+                    }
+                    
+                    else
+                        printf(", %d", i);
+                }
+            }
+            printf("\n");
+        }
+        else
+            printf("Reservation check failed\n");
+    }
+
+    else if(query->action == 4)  // Cancel Reservation
+    {
+        if(return_val == -1)
+        {
+            if(query->data < 0 || query->data > 255)
+                printf("Invalid query\n");
+            else
+                printf("Cancel failed\n");
+        }
+        else
+            printf("Seat %d is canceled\n", return_val);
+    }
+
+    else if(query->action == 5)   // Logout
+    {
+        if(return_val == 1)
+            printf("Logout success\n");
+        else
+            printf("Logout failed\n");
+    }
+
+    else if(return_val == 256)  // Terminate
+        return -1;
 
     return 0;
 }
