@@ -136,7 +136,10 @@ int main (int argc, char *argv[])
             exit(1);
         }
 
-        if(query.action == 1)   // Login
+        if((query.user < 0 || query.user > 1023 || query.action < 1 || query.action > 5) && return_val == -1)
+            printf("Invalid query\n");
+
+        else if(query.action == 1)   // Login
         {
             if(return_val == 1)
                 printf("Login success\n");
@@ -147,7 +150,12 @@ int main (int argc, char *argv[])
         else if(query.action == 2)  // Reservation
         {
             if(return_val == -1)
-                printf("Reservation failed\n");
+            {
+                if(query.data < 0 || query.data > 255)
+                    printf("Invalid query\n");
+                else
+                    printf("Reservation failed\n");
+            }
             else
                 printf("Seat %d is reserved\n", return_val);
         }
@@ -188,7 +196,12 @@ int main (int argc, char *argv[])
         else if(query.action == 4)  // Cancel Reservation
         {
             if(return_val == -1)
-                printf("Cancel failed\n");
+            {
+                if(query.data < 0 || query.data > 255)
+                    printf("Invalid query\n");
+                else
+                    printf("Cancel failed\n");
+            }
             else
                 printf("Seat %d is canceled\n", return_val);
         }

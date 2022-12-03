@@ -123,7 +123,7 @@ void *query_hdlr(void *arg)
     while(1)
     {
         query query;
-        int return_val = 1;
+        int return_val = -1;
         int *chk_seat = NULL;
 
         if(recv(connfd, &query, sizeof(query), 0) < 0)
@@ -137,25 +137,28 @@ void *query_hdlr(void *arg)
         if(query.user == 0 && query.action == 0 && query.data == 0)
             return_val = 256;
         
-        switch(query.action)
+        else if (query.user >= 0 && query.user <= 1023)
         {
-            case 1:
-                return_val = login(query, threadidx);
-                break;
-            case 2:
-                return_val = reserve(query, threadidx);
-                break;
-            case 3:
-                chk_seat = chk_reserve(query, threadidx);
-                if(chk_seat == NULL)
-                    return_val = -1;
-                break;
-            case 4:
-                return_val = cancel_reserve(query, threadidx);
-                break;
-            case 5:
-                return_val = logout(query, threadidx);
-                break;
+            switch(query.action)
+            {
+                case 1:
+                    return_val = login(query, threadidx);
+                    break;
+                case 2:
+                    return_val = reserve(query, threadidx);
+                    break;
+                case 3:
+                    chk_seat = chk_reserve(query, threadidx);
+                    if(chk_seat != NULL)
+                        return_val = 1;
+                    break;
+                case 4:
+                    return_val = cancel_reserve(query, threadidx);
+                    break;
+                case 5:
+                    return_val = logout(query, threadidx);
+                    break;
+            }
         }
         
         if(send(connfd, (int *)&return_val, sizeof(return_val), 0) < 0)
@@ -193,7 +196,6 @@ void *query_hdlr(void *arg)
         }
     }
 
-    printf("thread exit\n");
     close(connfd);
     thread_stat[threadidx] = 0;
     return NULL;
@@ -201,6 +203,9 @@ void *query_hdlr(void *arg)
 
 int login(query query, int thread_idx)
 {
+    if(query.data < 0)
+        return -1;
+
     pthread_mutex_lock(&login_m[query.user]);   // Lock mutex
     if(login_user[query.user] == -1)
     {
