@@ -76,6 +76,9 @@ int main(int argc, char* argv[])
 
     caddrlen = sizeof(caddr);
     pthread_t *cthreads = (pthread_t *)calloc(1024, sizeof(pthread_t));
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 
     while(1)
     {
@@ -101,14 +104,15 @@ int main(int argc, char* argv[])
                 {
                     argm->connfd = connfd;
                     argm->threadidx = i;
-                    pthread_create(&cthreads[i], NULL, query_hdlr, (void *)argm);
+                    pthread_create(&cthreads[i], &attr, query_hdlr, (void *)argm);
                     thread_stat[i] = 1;
                     break;
                 }
             }
         }
     }
-
+    
+    pthread_attr_destroy(&attr);
     free(cthreads);
     return 0;
 }
